@@ -111,15 +111,16 @@ Ask the user which image approach they prefer:
 
 - **Option A** → Use CSS placeholders matching the theme (emoji, SVG icons, CSS shapes)
 - **Option B** → Mark image positions in the outline, ask user for URLs, use `<img src>` with `loading="lazy"` and descriptive `alt` text
-- **Option C** → For each slide that would benefit from an image:
-  1. Determine a relevant English search keyword based on the slide content
-  2. Use Unsplash source URLs which are guaranteed to resolve: `https://source.unsplash.com/featured/1200x800/?{keyword}`
-     - Example: `https://source.unsplash.com/featured/1200x800/?technology,ai`
-     - Example: `https://source.unsplash.com/featured/1200x800/?teamwork,office`
-  3. Alternatively, search the web for images on Unsplash or Pexels and use the direct image URL (verify the URL returns 200 before inserting)
-  4. Insert as `<img src="URL" alt="description" loading="lazy">`
-  5. NEVER use AI-generated or guessed URLs — only use URLs from actual search results or the Unsplash source pattern above
-  6. Inform the user that auto-searched images are royalty-free from Unsplash (Unsplash License)
+- **Option C** → Automatically search and place images, but be selective:
+  1. NOT every slide needs an image. Only add images to slides where a visual genuinely enhances understanding (e.g., concept slides, example slides, section dividers). Skip images for quote slides, code slides, data/chart slides, comparison slides, and agenda slides.
+  2. Aim for roughly 30-40% of slides having images — not all of them.
+  3. Determine a relevant English search keyword based on the slide content.
+  4. Use Unsplash direct photo URLs: `https://images.unsplash.com/photo-{PHOTO_ID}?w=800&h=600&fit=crop`
+     - To find valid photo IDs, search the web for `site:unsplash.com {keyword}` and extract the photo ID from the URL.
+     - NEVER guess or fabricate Unsplash photo IDs — every URL must come from an actual search result.
+  5. After collecting image URLs, verify each one actually returns an image (HTTP 200) before inserting. Replace any 404 URLs with CSS placeholders.
+  6. Insert as `<img src="URL" alt="description" loading="lazy">`
+  7. Inform the user that images are from Unsplash (Unsplash License, free for commercial use).
 
 ### Step 4: Generate Outline
 Create a slide-by-slide outline with:
@@ -188,13 +189,42 @@ When the user selects PPTX output, follow this modified workflow:
 Follow the standard HTML generation workflow (Steps 1-7) but with these constraints from the PPTX spec. Read `references/pptx-spec.md` for the complete PPTX conversion rules before generating HTML.
 
 ### PPTX Step 2: Convert HTML to PPTX
-Use the html2pptx conversion pipeline:
-1. Install dependencies if not present: `npm install pptxgenjs sharp puppeteer`
-2. For each HTML slide, render and convert to PPTX using PptxGenJS
-3. Combine all slides into a single `.pptx` file
+Use the screenshot-based conversion pipeline with Puppeteer + PptxGenJS:
+1. Install dependencies if not present: `npm install pptxgenjs puppeteer`
+2. Write a conversion script that:
+   - Opens the HTML file in a headless browser with viewport 1280×720 (16:9)
+   - For EACH slide:
+     a. Navigate to that slide (set it as active, remove active class from others)
+     b. **Wait for ALL animations to complete** — add a delay of at least 1000ms after activating the slide, or better: disable all CSS animations/transitions before capturing by injecting `* { animation: none !important; transition: none !important; }`
+     c. **Hide all other slides completely** — ensure only the current slide is visible (opacity:1, display:flex) and all others are hidden (opacity:0, display:none). This prevents ghost/residue from previous slides.
+     d. Take a full-page screenshot of the viewport at **2x resolution** (deviceScaleFactor: 2) for crisp text
+   - Insert each screenshot into PPTX as a **full-slide image** covering the entire slide area (x:0, y:0, w:'100%', h:'100%')
+   - Do NOT add margins or padding around the image — it should fill the entire slide
+3. Save as `.pptx`
+
+**Critical: Preventing ghost slides and small content**
+```javascript
+// Before each screenshot, inject this CSS to disable animations
+await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; animation-delay: 0s !important; }' });
+
+// Hide all slides, then show only current
+await page.evaluate((idx) => {
+  document.querySelectorAll('.slide').forEach((s, i) => {
+    s.style.display = i === idx ? 'flex' : 'none';
+    s.style.opacity = i === idx ? '1' : '0';
+    s.classList.toggle('active', i === idx);
+  });
+}, slideIndex);
+
+// Wait for layout to settle
+await new Promise(r => setTimeout(r, 500));
+
+// Screenshot at 2x for crisp text
+await page.screenshot({ path: outputPath, type: 'png' });
+```
 
 ### PPTX Step 3: Validate and Deliver
-- Open the PPTX to verify content and formatting
+- Verify the PPTX opens correctly and content fills each slide without excess margins
 - Save as `presentation.pptx` (or user-specified filename)
 - Offer to also generate the HTML version for preview
 

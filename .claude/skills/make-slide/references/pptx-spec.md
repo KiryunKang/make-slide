@@ -80,17 +80,64 @@ Workflow:
    - `<img>` → `add_picture()`
 4. Save as .pptx
 
-### Method 3: Screenshot-based (Simplest but lowest quality)
+### Method 3: Screenshot-based (Recommended for visual fidelity)
 ```bash
 npm install puppeteer pptxgenjs
 ```
+
+This is the recommended method when using make-slide themes, because it preserves the exact visual design including custom fonts, gradients, and complex layouts.
 
 Workflow:
 1. Generate full HTML presentation (standard mode, no PPTX constraints needed)
 2. Use Puppeteer to screenshot each slide as high-resolution PNG
 3. Insert each screenshot as a full-slide image in PPTX
-4. Add text overlays for searchability (optional)
-- Note: This produces image-based slides (no editable text) but preserves exact visual design
+4. Note: This produces image-based slides (no editable text) but preserves exact visual design
+
+**Critical implementation details to prevent common issues:**
+
+**Problem: Ghost/residue from previous slides appearing in screenshots**
+```javascript
+// BEFORE capturing, disable ALL animations and transitions
+await page.addStyleTag({ 
+  content: '*, *::before, *::after { animation: none !important; transition: none !important; animation-delay: 0s !important; opacity: 1 !important; }' 
+});
+
+// For each slide, hide ALL others completely
+await page.evaluate((idx) => {
+  document.querySelectorAll('.slide').forEach((s, i) => {
+    if (i === idx) {
+      s.style.display = 'flex';
+      s.style.opacity = '1';
+      s.style.visibility = 'visible';
+      s.classList.add('active');
+    } else {
+      s.style.display = 'none';
+      s.style.opacity = '0';
+      s.style.visibility = 'hidden';
+      s.classList.remove('active');
+    }
+  });
+}, slideIndex);
+
+// Wait for layout to fully settle
+await new Promise(r => setTimeout(r, 500));
+```
+
+**Problem: Content appears too small with large margins in PPTX**
+```javascript
+// Set viewport to exact 16:9 dimensions
+await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+
+// Screenshot the full viewport
+const screenshot = await page.screenshot({ type: 'png' });
+
+// Insert as FULL-SLIDE image — no margins
+slide.addImage({
+  data: `image/png;base64,${screenshot.toString('base64')}`,
+  x: 0, y: 0, w: '100%', h: '100%'
+});
+```
+Do NOT use percentage-based sizing with margins. The image must cover x:0, y:0 to w:100%, h:100%.
 
 ## Design Principles for PPTX
 
