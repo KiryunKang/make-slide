@@ -74,6 +74,11 @@ Follow these steps in order:
   - 30-min talk → 30–40 slides
 - Identify the target audience and tone (technical, business, casual, academic)
 - Detect the user's language from the conversation — generate content in that language
+- Detect or ask about the desired output format:
+  - **HTML** (default) — Interactive single-file presentation with navigation, animations, and speaker notes
+  - **PPTX** — PowerPoint file for traditional presentation software (Office, Google Slides, Keynote)
+  - If the user mentions "PowerPoint", "pptx", "PPT", ".pptx", "Google Slides", or "Keynote" → use PPTX mode
+  - If unclear, default to HTML and mention PPTX is also available
 
 ### Step 2: Choose a Theme
 Present the user with the theme gallery link for browsing:
@@ -91,12 +96,25 @@ If the user doesn't choose a theme, recommend one based on context:
 - Product launch → `keynote-apple`
 - Casual/team event → `playful`
 
-### Step 3: Check Image Needs
-Ask the user:
-> "Would you like me to identify image insertion points in the slides? If yes, I'll mark them in the outline and you can provide image URLs. If no, I'll use styled placeholders."
+### Step 3: Image Options
+Ask the user which image approach they prefer:
 
-- **Yes** → Mark image positions in the outline, ask user for image URLs
-- **No** → Use CSS placeholders (emoji, SVG icons, CSS shapes) that match the theme
+> **How would you like to handle images in your slides?**
+> 
+> **A) No images** — Use styled CSS placeholders (emoji, icons, shapes) that match the theme. Clean and lightweight.
+> 
+> **B) I'll provide URLs** — I'll mark image positions in the outline, and you provide the image URLs.
+> 
+> **C) Auto-search** — I'll search the web for relevant, high-quality images and place them automatically.
+
+- **Option A** → Use CSS placeholders matching the theme (emoji, SVG icons, CSS shapes)
+- **Option B** → Mark image positions in the outline, ask user for URLs, use `<img src>` with `loading="lazy"` and descriptive `alt` text
+- **Option C** → For each slide that would benefit from an image:
+  1. Determine a relevant search query based on the slide content
+  2. Search for images using web search (prefer Unsplash, Pexels, or other royalty-free sources)
+  3. Select the most relevant, high-quality result
+  4. Insert as `<img src="URL" alt="description" loading="lazy">`
+  5. Note: Inform the user that auto-searched images are from the web and they should verify licensing for commercial use
 
 ### Step 4: Generate Outline
 Create a slide-by-slide outline with:
@@ -157,6 +175,26 @@ For Mode C, the user already has a script — skip this step.
   # Node.js
   npx serve .
   ```
+
+---
+
+## PPTX Output Mode
+
+When the user selects PPTX output, follow this modified workflow:
+
+### PPTX Step 1: Generate HTML Slides (PPTX-Compatible)
+Follow the standard HTML generation workflow (Steps 1-7) but with these constraints from the PPTX spec. Read `references/pptx-spec.md` for the complete PPTX conversion rules before generating HTML.
+
+### PPTX Step 2: Convert HTML to PPTX
+Use the html2pptx conversion pipeline:
+1. Install dependencies if not present: `npm install pptxgenjs sharp puppeteer`
+2. For each HTML slide, render and convert to PPTX using PptxGenJS
+3. Combine all slides into a single `.pptx` file
+
+### PPTX Step 3: Validate and Deliver
+- Open the PPTX to verify content and formatting
+- Save as `presentation.pptx` (or user-specified filename)
+- Offer to also generate the HTML version for preview
 
 ---
 

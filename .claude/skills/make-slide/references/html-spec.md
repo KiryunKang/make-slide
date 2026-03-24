@@ -47,10 +47,28 @@ Every generated presentation includes all of the following features. These ensur
 
 ### Speaker Notes Panel
 - `S` key toggles the speaker notes panel
-- Panel displays:
+- Implementation: Open a **separate popup window** using `window.open()`, not an inline panel
+- The popup window displays:
+  - Current slide number and total
   - Current slide's notes (from `data-notes` attribute)
-  - Next slide preview (when possible)
-- Panel should not obstruct the main slide view
+  - Next slide preview text (when possible)
+- The popup auto-updates when the main presentation changes slides
+- Popup styling should be clean and readable (large font, good contrast)
+- The main slide view must NOT be affected by the notes panel
+- Example implementation pattern:
+  ```javascript
+  let notesWindow = null;
+  function toggleNotes() {
+    if (notesWindow && !notesWindow.closed) { notesWindow.close(); notesWindow = null; return; }
+    notesWindow = window.open('', 'SpeakerNotes', 'width=500,height=400');
+    // Write styled HTML to notesWindow.document
+    updateNotes();
+  }
+  function updateNotes() {
+    if (!notesWindow || notesWindow.closed) return;
+    // Update content with current slide's data-notes
+  }
+  ```
 
 ### Touch/Swipe Navigation
 - Swipe left → Next slide
