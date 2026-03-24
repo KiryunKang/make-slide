@@ -74,11 +74,13 @@ Follow these steps in order:
   - 30-min talk → 30–40 slides
 - Identify the target audience and tone (technical, business, casual, academic)
 - Detect the user's language from the conversation — generate content in that language
-- Detect or ask about the desired output format:
-  - **HTML** (default) — Interactive single-file presentation with navigation, animations, and speaker notes
-  - **PPTX** — PowerPoint file for traditional presentation software (Office, Google Slides, Keynote)
-  - If the user mentions "PowerPoint", "pptx", "PPT", ".pptx", "Google Slides", or "Keynote" → use PPTX mode
-  - If unclear, default to HTML and mention PPTX is also available
+- Ask the user about the desired output format (always ask, do not skip):
+  > **Which output format would you like?**
+  > - **HTML** — Interactive single-file presentation you can open in a browser (navigation, animations, speaker notes built-in)
+  > - **PPTX** — PowerPoint file for Office, Google Slides, or Keynote
+  
+  - If the user already mentioned "PowerPoint", "pptx", "PPT", ".pptx", "Google Slides", or "Keynote" in their request → skip the question and use PPTX mode
+  - Otherwise, always ask explicitly before proceeding
 
 ### Step 2: Choose a Theme
 Present the user with the theme gallery link for browsing:
@@ -110,11 +112,14 @@ Ask the user which image approach they prefer:
 - **Option A** → Use CSS placeholders matching the theme (emoji, SVG icons, CSS shapes)
 - **Option B** → Mark image positions in the outline, ask user for URLs, use `<img src>` with `loading="lazy"` and descriptive `alt` text
 - **Option C** → For each slide that would benefit from an image:
-  1. Determine a relevant search query based on the slide content
-  2. Search for images using web search (prefer Unsplash, Pexels, or other royalty-free sources)
-  3. Select the most relevant, high-quality result
+  1. Determine a relevant English search keyword based on the slide content
+  2. Use Unsplash source URLs which are guaranteed to resolve: `https://source.unsplash.com/featured/1200x800/?{keyword}`
+     - Example: `https://source.unsplash.com/featured/1200x800/?technology,ai`
+     - Example: `https://source.unsplash.com/featured/1200x800/?teamwork,office`
+  3. Alternatively, search the web for images on Unsplash or Pexels and use the direct image URL (verify the URL returns 200 before inserting)
   4. Insert as `<img src="URL" alt="description" loading="lazy">`
-  5. Note: Inform the user that auto-searched images are from the web and they should verify licensing for commercial use
+  5. NEVER use AI-generated or guessed URLs — only use URLs from actual search results or the Unsplash source pattern above
+  6. Inform the user that auto-searched images are royalty-free from Unsplash (Unsplash License)
 
 ### Step 4: Generate Outline
 Create a slide-by-slide outline with:
@@ -156,6 +161,8 @@ Add speaker notes as `data-notes` attributes on each slide's `<div>`:
 - Expand on the slide text — don't just repeat it
 - Include transitions between slides (e.g., "Now let's move on to...")
 
+**Speaker Notes Panel must be a separate popup window** using `window.open()`. Do NOT render notes inline at the bottom of the slide — this breaks the slide layout. The `S` key should toggle a popup window that shows the current slide's notes and auto-updates on slide change. See `references/html-spec.md` for the implementation pattern.
+
 ### Step 8: Generate Script (Mode A and B only)
 For Mode A and B, also generate a separate `script.md` file containing:
 - Full speaking script organized by slide
@@ -168,13 +175,8 @@ For Mode C, the user already has a script — skip this step.
 ### Step 9: Save and Deliver
 - Save the presentation as `index.html` (or user-specified filename)
 - Save the script as `script.md` (if generated)
-- Offer to start a local server for preview:
-  ```bash
-  # Python
-  python -m http.server 8000
-  # Node.js
-  npx serve .
-  ```
+- Tell the user they can open `index.html` directly in their browser to view the presentation — no server needed
+- The file is fully self-contained (all CSS/JS inlined), so it works by simply double-clicking the file or dragging it into a browser
 
 ---
 
