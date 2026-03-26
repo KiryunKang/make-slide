@@ -20,10 +20,14 @@ function goTo(index) {
 }
 
 document.addEventListener('keydown', (e) => {
+  // Block shortcuts while editing text (edit mode)
+  if (typeof editMode !== 'undefined' && editMode && document.activeElement.isContentEditable) return;
+  
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
   if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(current - 1); }
   if (e.key.toLowerCase() === 'f') toggleFullscreen();
   if (e.key.toLowerCase() === 's') toggleNotes();
+  if (e.key.toLowerCase() === 'e' && typeof toggleEdit === 'function') toggleEdit();
 });
 
 // Touch/swipe
@@ -187,57 +191,37 @@ function updateNotes() {
 
 ## 8. Live Edit Mode
 
-Press `E` to toggle edit mode. In edit mode, click any text element to edit it directly. Changes are automatically saved to localStorage and persist across page reloads.
+Press `E` to toggle edit mode. Click text to edit. Click **Save** to persist changes to localStorage.
 
-### Edit Mode Toggle Button
+### HTML
 
 ```html
-<button class="edit-btn" id="editBtn" onclick="toggleEdit()">✏️ Edit</button>
-<button class="reset-btn" onclick="resetEdits()">↺ Reset</button>
+<div class="edit-bar" id="editBar">
+  <button class="eb" id="editBtn" onclick="toggleEdit()">Edit</button>
+  <button class="eb save" id="saveBtn" onclick="saveEdits()">Save</button>
+  <button class="eb reset" onclick="resetEdits()">Reset</button>
+</div>
 ```
+
+### CSS
 
 ```css
-.edit-btn {
-  position: fixed; top: 12px; right: 12px;
-  padding: 6px 16px; border-radius: 20px;
-  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-  color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer;
-  z-index: 100; font-family: inherit; transition: all 0.2s;
-}
-.edit-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
-.edit-btn.active { background: rgba(59,130,246,0.3); border-color: rgba(59,130,246,0.5); color: #60a5fa; }
-
-/* Edit mode styles */
-.edit-mode [contenteditable="true"] {
-  outline: 2px dashed rgba(59,130,246,0.4);
-  outline-offset: 4px;
-  border-radius: 4px;
-  min-height: 1em;
-}
-.edit-mode [contenteditable="true"]:focus {
-  outline: 2px solid rgba(59,130,246,0.7);
-  background: rgba(59,130,246,0.05);
-}
-.edit-mode [contenteditable="true"]:hover {
-  outline: 2px dashed rgba(59,130,246,0.6);
-}
-
-/* Reset button */
-.reset-btn {
-  position: fixed; top: 12px; right: 100px;
-  padding: 6px 12px; border-radius: 20px;
-  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
-  color: rgba(239,68,68,0.7); font-size: 11px; cursor: pointer;
-  z-index: 100; font-family: inherit; display: none; transition: all 0.2s;
-}
-.reset-btn:hover { background: rgba(239,68,68,0.25); color: #ef4444; }
-.edit-mode .reset-btn { display: block; }
-
-@media print { .edit-btn, .reset-btn { display: none !important; } }
+.edit-bar { position:fixed; top:12px; right:12px; display:flex; gap:8px; z-index:100; }
+.eb { padding:5px 14px; border-radius:4px; font-size:11px; cursor:pointer; font-family:inherit; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); }
+.eb:hover { background:rgba(255,255,255,0.15); color:#fff; }
+.eb.active { background:rgba(59,130,246,0.25); border-color:rgba(59,130,246,0.4); color:#60a5fa; }
+.eb.save, .eb.reset { display:none; }
+.edit-mode .eb.save, .edit-mode .eb.reset { display:block; }
+.eb.reset { border-color:rgba(239,68,68,0.3); color:rgba(239,68,68,0.6); }
+.eb.reset:hover { background:rgba(239,68,68,0.15); color:#ef4444; }
+.edit-mode [contenteditable="true"] { outline:2px dashed rgba(59,130,246,0.3); outline-offset:3px; }
+.edit-mode [contenteditable="true"]:focus { outline:2px solid rgba(59,130,246,0.6); background:rgba(59,130,246,0.05); }
+@media print { .edit-bar { display:none !important; } }
 ```
 
+### JavaScript
+
 ```javascript
-// ===== Live Edit Mode =====
 let editMode = false;
 const STORAGE_KEY = 'make-slide-edits-' + location.pathname;
 
@@ -245,122 +229,82 @@ function toggleEdit() {
   editMode = !editMode;
   document.body.classList.toggle('edit-mode', editMode);
   document.getElementById('editBtn').classList.toggle('active', editMode);
-  document.getElementById('editBtn').textContent = editMode ? '✏️ Editing' : '✏️ Edit';
-  
-  // Toggle contenteditable on all text elements within slides
-  // Only target text elements INSIDE slides — exclude UI elements (hints, controls, buttons, counters)
-  const editableSelectors = '.slide h1, .slide h2, .slide h3, .slide h4, .slide h5, .slide h6, .slide p, .slide li, .slide td, .slide th, .slide blockquote';
-  document.querySelectorAll(editableSelectors).forEach(el => {
-    // Skip elements that are part of the UI (controls, hints, navigation)
-    if (el.closest('.hint, .controls, .counter, .progress, nav, button, .edit-btn, .reset-btn, .k')) return;
-    if (editMode) {
-      el.setAttribute('contenteditable', 'true');
-      el.addEventListener('input', saveEdits);
-    } else {
-      el.removeAttribute('contenteditable');
-      el.removeEventListener('input', saveEdits);
-    }
+  document.getElementById('editBtn').textContent = editMode ? 'Editing' : 'Edit';
+  const sel = '.slide h1,.slide h2,.slide h3,.slide h4,.slide p,.slide li,.slide td,.slide th';
+  document.querySelectorAll(sel).forEach(el => {
+    if (el.closest('.hint,.controls,.counter,.progress,nav,button')) return;
+    el.contentEditable = editMode ? 'true' : 'false';
   });
+  updateNotes();
 }
+
+// IMPORTANT: Disable keyboard shortcuts while editing text
+// Add this check at the TOP of the keydown handler (section 1):
+//   if (editMode && document.activeElement.isContentEditable) return;
 
 function saveEdits() {
   const data = {};
-  document.querySelectorAll('.slide').forEach((slide, i) => {
-    // Save slide content
-    const content = slide.innerHTML;
-    const notes = slide.dataset.notes || '';
-    data[i] = { content, notes };
+  document.querySelectorAll('.slide').forEach((s, i) => {
+    data[i] = { content: s.innerHTML, notes: s.dataset.notes || '' };
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 function loadEdits() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) return;
+  const d = localStorage.getItem(STORAGE_KEY);
+  if (!d) return;
   try {
-    const data = JSON.parse(saved);
-    document.querySelectorAll('.slide').forEach((slide, i) => {
-      if (data[i]) {
-        slide.innerHTML = data[i].content;
-        if (data[i].notes !== undefined) {
-          slide.dataset.notes = data[i].notes;
-        }
-      }
+    const data = JSON.parse(d);
+    document.querySelectorAll('.slide').forEach((s, i) => {
+      if (data[i]) { s.innerHTML = data[i].content; s.dataset.notes = data[i].notes; }
     });
   } catch(e) {}
 }
 
 function resetEdits() {
-  if (confirm('Reset all edits to original? This cannot be undone.')) {
-    localStorage.removeItem(STORAGE_KEY);
-    location.reload();
-  }
+  if (confirm('Reset all edits?')) { localStorage.removeItem(STORAGE_KEY); location.reload(); }
 }
 
-// Load saved edits on page load
 document.addEventListener('DOMContentLoaded', loadEdits);
-
-// Also handle 'E' key in the main keyboard listener
-// Add to the existing keydown handler:
-// if (e.key.toLowerCase() === 'e') toggleEdit();
 ```
 
-### Speaker Notes Editing
+### Keyboard shortcut guard
 
-When edit mode is active, the speaker notes popup should also allow editing. Update the toggleNotes/updateNotes functions:
+The keydown handler from section 1 must include this guard at the top to prevent shortcuts from firing while editing:
 
 ```javascript
-// Enhanced speaker notes popup with edit support
-function toggleNotes() {
-  if (notesWindow && !notesWindow.closed) { notesWindow.close(); notesWindow = null; return; }
-  notesWindow = window.open('', 'SpeakerNotes', 'width=520,height=420,top=80,left=80');
-  notesWindow.document.write(`<!DOCTYPE html>
-<html><head><style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-         background: #1a1a1a; color: #e0e0e0; padding: 24px; }
-  .slide-num { font-size: 12px; color: #888; margin-bottom: 12px; font-family: monospace; }
-  .label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
-           color: #666; margin-bottom: 8px; }
-  .notes { font-size: 16px; line-height: 1.8; color: #ccc; padding: 8px;
-           border-radius: 6px; min-height: 100px; }
-  .notes:focus { outline: 2px solid rgba(59,130,246,0.5); background: rgba(59,130,246,0.05); }
-  .edit-hint { font-size: 11px; color: #555; margin-top: 12px; }
-</style></head><body>
-  <div class="slide-num" id="sn"></div>
-  <div class="label">Speaker Notes</div>
-  <div class="notes" id="nt"></div>
-  <div class="edit-hint" id="editHint"></div>
-</body></html>`);
-  notesWindow.document.close();
+document.addEventListener('keydown', (e) => {
+  // Block shortcuts while editing text
+  if (editMode && document.activeElement.isContentEditable) return;
   
-  // Add event listener for notes editing
-  setTimeout(() => {
-    const ntEl = notesWindow.document.getElementById('nt');
-    ntEl.addEventListener('input', () => {
-      if (editMode) {
-        slides[current].dataset.notes = ntEl.textContent;
-        saveEdits();
-      }
-    });
-  }, 100);
-  
-  updateNotes();
-}
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
+  // ... rest of shortcuts
+  if (e.key.toLowerCase() === 'e') toggleEdit();
+});
+```
 
+### Speaker notes editing
+
+In the notes popup, make notes editable when edit mode is on. In `updateNotes()`:
+
+```javascript
 function updateNotes() {
   if (!notesWindow || notesWindow.closed) return;
   try {
-    const note = slides[current].dataset.notes || '(No notes)';
-    const ntEl = notesWindow.document.getElementById('nt');
-    ntEl.textContent = note;
-    ntEl.setAttribute('contenteditable', editMode ? 'true' : 'false');
-    notesWindow.document.getElementById('sn').textContent =
-      'Slide ' + (current + 1) + ' / ' + slides.length;
-    const hint = notesWindow.document.getElementById('editHint');
-    hint.textContent = editMode ? '✏️ Edit mode — click to modify notes' : 'Press E in main window to enable editing';
+    notesWindow.document.getElementById('nt').textContent = slides[current].dataset.notes || '(No notes)';
+    notesWindow.document.getElementById('nt').contentEditable = editMode ? 'true' : 'false';
+    notesWindow.document.getElementById('sn').textContent = 'Slide ' + (current+1) + ' / ' + slides.length;
   } catch(e) {}
 }
+```
+
+Add input listener in `toggleNotes()` after writing the popup:
+```javascript
+setTimeout(() => {
+  notesWindow.document.getElementById('nt').addEventListener('input', () => {
+    if (editMode) slides[current].dataset.notes = notesWindow.document.getElementById('nt').textContent;
+  });
+}, 100);
 ```
 
 ## Usage Note
