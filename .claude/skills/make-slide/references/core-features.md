@@ -206,7 +206,8 @@ Press `E` to toggle edit mode. Click text to edit. Click **Save** to persist cha
 ### CSS
 
 ```css
-.edit-bar { position:fixed; top:12px; right:12px; display:flex; gap:8px; z-index:100; }
+.edit-bar { position:fixed; bottom:24px; right:32px; display:flex; gap:8px; z-index:100; }
+/* NOTE: Place edit bar at bottom-right to avoid overlap with fullscreen button at top-right */
 .eb { padding:5px 14px; border-radius:4px; font-size:11px; cursor:pointer; font-family:inherit; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); }
 .eb:hover { background:rgba(255,255,255,0.15); color:#fff; }
 .eb.active { background:rgba(59,130,246,0.25); border-color:rgba(59,130,246,0.4); color:#60a5fa; }
