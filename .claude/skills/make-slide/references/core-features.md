@@ -198,7 +198,7 @@ Press `E` to toggle edit mode. In edit mode, click any text element to edit it d
 
 ```css
 .edit-btn {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 12px; right: 12px;
   padding: 6px 16px; border-radius: 20px;
   background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
   color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer;
@@ -224,7 +224,7 @@ Press `E` to toggle edit mode. In edit mode, click any text element to edit it d
 
 /* Reset button */
 .reset-btn {
-  position: fixed; bottom: 20px; left: calc(50% + 60px); transform: translateX(-50%);
+  position: fixed; top: 12px; right: 100px;
   padding: 6px 12px; border-radius: 20px;
   background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
   color: rgba(239,68,68,0.7); font-size: 11px; cursor: pointer;
@@ -248,8 +248,11 @@ function toggleEdit() {
   document.getElementById('editBtn').textContent = editMode ? '✏️ Editing' : '✏️ Edit';
   
   // Toggle contenteditable on all text elements within slides
-  const editableSelectors = 'h1, h2, h3, h4, h5, h6, p, li, span:not(.placeholder-icon), td, th, blockquote';
-  document.querySelectorAll('.slide ' + editableSelectors).forEach(el => {
+  // Only target text elements INSIDE slides — exclude UI elements (hints, controls, buttons, counters)
+  const editableSelectors = '.slide h1, .slide h2, .slide h3, .slide h4, .slide h5, .slide h6, .slide p, .slide li, .slide td, .slide th, .slide blockquote';
+  document.querySelectorAll(editableSelectors).forEach(el => {
+    // Skip elements that are part of the UI (controls, hints, navigation)
+    if (el.closest('.hint, .controls, .counter, .progress, nav, button, .edit-btn, .reset-btn, .k')) return;
     if (editMode) {
       el.setAttribute('contenteditable', 'true');
       el.addEventListener('input', saveEdits);
